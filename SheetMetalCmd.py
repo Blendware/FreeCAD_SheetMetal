@@ -1414,6 +1414,7 @@ def smBend(
 
         # `CutSolids` list for collecting Solids.
         CutSolids = []
+        GapSolids = []
 
         # Calculate cut gap to avoid small faces.
         # Ref_lenEdge = noGap_lenEdge.copy().translate(FaceDir * -offset)
@@ -1424,25 +1425,25 @@ def smBend(
                                                reliefD, reliefType, op="SMF")
                 reliefSolid1 = reliefFace1.extrude(thkDir * thk)
                 # Part.show(reliefSolid1, "reliefSolid1a")
-                CutSolids.append(reliefSolid1)
+                GapSolids.append(reliefSolid1)
                 if inside:
                     reliefFace1 = smMakeReliefFace(lenEdge, FaceDir * -1, gap1 - reliefW, reliefW,
                                                    offset, "Rectangle", op="SMF")
                     reliefSolid1 = reliefFace1.extrude(thkDir * thk)
                     # Part.show(reliefSolid1, "reliefSolid1b")
-                    CutSolids.append(reliefSolid1)
+                    GapSolids.append(reliefSolid1)
             if agap2 > minReliefgap: # and cutgap2 > 0.0:
                 reliefFace2 = smMakeReliefFace(lenEdge, FaceDir * -1, lenEdge.Length - gap2,
                                                reliefW, reliefD, reliefType, op="SMFF")
                 reliefSolid2 = reliefFace2.extrude(thkDir * thk)
                 # Part.show(reliefSolid2, "reliefSolid2")
-                CutSolids.append(reliefSolid2)
+                GapSolids.append(reliefSolid2)
                 if inside:
                     reliefFace2 = smMakeReliefFace(lenEdge, FaceDir * -1, lenEdge.Length - gap2,
                                                    reliefW, offset, "Rectangle", op="SMFF")
                     reliefSolid2 = reliefFace2.extrude(thkDir * thk)
                     # Part.show(reliefSolid2, "reliefSolid2")
-                    CutSolids.append(reliefSolid2)
+                    GapSolids.append(reliefSolid2)
 
         # Remove bend face if present.
         if inside:
@@ -1509,6 +1510,7 @@ def smBend(
                                     # print(type(edge.Curve))
                                     if issubclass(type(edge.Curve),
                                                   (Part.Circle or Part.BSplineSurface)):
+
                                         RfaceE = Rface.makeOffsetShape(-Noffset2, 0.0, fill=True)
                                         # Part.show(RfaceE, "RfaceSolid2")
                                         CutSolids.append(RfaceE)
@@ -1532,10 +1534,26 @@ def smBend(
 
         # Produce Main Solid for Inside Bends.
         if CutSolids:
-            if len(CutSolids) == 1:
+            if (len(CutSolids) + len(GapSolids)) == 1:
                 resultSolid = resultSolid.cut(CutSolids[0])
             else:
-                Solid = CutSolids[0].multiFuse(CutSolids[1:])
+                if len(CutSolids) > 1:
+                    Solid = CutSolids[0].multiFuse(CutSolids[1:])
+                else: Solid = CutSolids[0]
+
+                pt2 = lenEdge.valueAt(lenEdge.LastParameter)
+                pt1 = lenEdge.valueAt(lenEdge.FirstParameter)
+                EdgeVector = pt1 - pt2
+                EdgeVector.normalize()
+                SplitShape = Part.makeLine(pt1 + EdgeVector * 5, pt2 + EdgeVector * -5)
+                SplitShape = SplitShape.extrude(thkDir*thk)
+                SplitShape = SplitShape.extrude(FaceDir*-offset*2)
+                # Part.show(SplitShape,"SplitShape")
+                Solid = Solid.common(SplitShape)
+
+                if len(GapSolids) > 0:
+                    Solid = Solid.multiFuse(GapSolids[0:])
+
                 Solid.removeSplitter()
                 # Part.show(Solid)
                 resultSolid = resultSolid.cut(Solid)
