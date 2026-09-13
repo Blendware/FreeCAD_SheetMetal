@@ -1415,6 +1415,7 @@ def smBend(
         # `CutSolids` list for collecting Solids.
         CutSolids = []
         GapSolids = []
+        BendEdges = []
 
         # Calculate cut gap to avoid small faces.
         # Ref_lenEdge = noGap_lenEdge.copy().translate(FaceDir * -offset)
@@ -1532,6 +1533,53 @@ def smBend(
             # Part.show(CutSolid, "CutSolid")
             CutSolids.append(CutSolid)
 
+        EdgesWithSameVertex = []
+        if len(trimedgelist) > 1 and offset != 0:
+            edges = trimedgelist.copy()
+            while edges:
+            # for i in range(len(edges)):
+                edge = edges[0]
+                for j in range(1, len(edges)):
+                    for v1 in edge.Vertexes:
+                        for v2 in edges[j].Vertexes:
+                            if v1.Point.isEqual(v2.Point,0.001):
+                                p = v1.Point
+                                
+                                EdgesWithSameVertex.append((edge,edges[j],p))
+                edges.pop(0)
+        if len(EdgesWithSameVertex) > 0 and offset != 0:
+            for edge in EdgesWithSameVertex:
+                a = edge[0]
+                b = edge[1]
+                p = edge[2]
+                
+                if a.Vertexes[0].Point.isEqual(p,0.001):
+                    v1 = a.Vertexes[1].Point - a.Vertexes[0].Point
+                else:
+                    v1 = a.Vertexes[0].Point - a.Vertexes[1].Point
+                if b.Vertexes[0].Point.isEqual(p,0.001):
+                    v2 = b.Vertexes[1].Point - b.Vertexes[0].Point
+                else:
+                    v2 = b.Vertexes[0].Point - b.Vertexes[1].Point
+                v1.normalize()
+                v2.normalize()
+                p1 = p + v1*offset
+                p2 = p + v1*offset
+                p2 = p2 + v2*offset
+                p3 = p + v2*offset
+
+                poly = Part.makePolygon([
+                        p,
+                        p1,
+                        p2,
+                        p3,
+                        p
+                    ])
+                # Part.show(poly, "PolyCorner")
+                face = Part.Face(poly) 
+                solid = face.extrude(thkDir*thk)
+                GapSolids.append(solid)
+
         # Produce Main Solid for Inside Bends.
         if CutSolids:
             if (len(CutSolids) + len(GapSolids)) == 1:
@@ -1547,16 +1595,16 @@ def smBend(
                 EdgeVector.normalize()
                 SplitShape = Part.makeLine(pt1 + EdgeVector * 5, pt2 + EdgeVector * -5)
                 SplitShape = SplitShape.extrude(thkDir*thk)
-                SplitShape = SplitShape.extrude(FaceDir*-offset*2)
+                SplitShape = SplitShape.extrude(FaceDir*-offset)
                 # Part.show(SplitShape,"SplitShape")
                 Solid = Solid.common(SplitShape)
 
                 if len(GapSolids) > 0:
                     Solid = Solid.multiFuse(GapSolids[0:])
 
-                Solid.removeSplitter()
+                Solid = Solid.removeSplitter()
                 # Part.show(Solid)
-                resultSolid = resultSolid.cut(Solid)
+                resultSolid = resultSolid.cut(Solid,0.1)
         # Produce Offset Solid.
         if offset > 0.0:
             # Create wall.
