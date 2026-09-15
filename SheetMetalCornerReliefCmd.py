@@ -668,7 +668,6 @@ def smCornerR(reliefsketch="Circle", size=3.0, ratio=1.0, xoffset=0.0, yoffset=0
 
     return resultSolid
 
-
 class SMCornerRelief:
     """Add Corner Relief to SheetMetal Bends."""
 
@@ -724,6 +723,22 @@ class SMCornerRelief:
                              MainObject=fp.baseObject[0])
         SheetMetalTools.smHideObjects(fp.baseObject[0], fp.Sketch)
 
+def updateMissingParameter(obj):
+    items = list(obj.getEnumerationsOfProperty("ReliefSketch"))
+
+    if "Weld" not in items:
+        obj.removeProperty("ReliefSketch")
+        _tip_ = FreeCAD.Qt.translate("App::Property", "Corner Relief Type")
+        obj.addProperty("App::PropertyEnumeration", "ReliefSketch", "Parameters", _tip_
+        ).ReliefSketch = [
+            "Circle",
+            "Circle-Scaled",
+            "Square",
+            "Square-Scaled",
+            "Weld",
+            "Weld-Scaled",
+            "Sketch",
+        ]
 
 ###################################################################################################
 # Gui code
@@ -793,6 +808,7 @@ if SheetMetalTools.isGuiLoaded():
             self.updateWidgetVisibility()
 
         def reliefTypeChanged(self, button, checked):
+            updateMissingParameter(self.obj)
             if not checked:
                 return
             relative = self.form.radioRelative.isChecked()
