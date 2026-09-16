@@ -311,7 +311,7 @@ def closest_edge(
     ancestors = shape.ancestorsOfType(source_edge, Part.Face)
 
     for cylface in ancestors:
-        if isinstance(cylface.Surface, Part.Cylinder):
+        if issubclass(type(cylface.Surface), Part.Cylinder):
             break
 
     tester = None
@@ -320,6 +320,8 @@ def closest_edge(
         if tester:
             break
         if edge.isSame(source_edge):
+            continue
+        if not issubclass(type(edge.Curve), Part.Circle):
             continue
         for vertex in edge.Vertexes:
             if same_vertex(vertex.Point, point):
@@ -338,7 +340,7 @@ def closest_edge(
     ancestors = shape.ancestorsOfType(top_edge, Part.Face)
 
     for face in ancestors:
-        if isinstance(face.Surface, Part.Cylinder):
+        if issubclass(type(face.Surface), Part.Cylinder):
             continue
         for edge in face.Edges:
             if edge.isSame(top_edge):
