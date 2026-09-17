@@ -69,12 +69,12 @@ def makeSketch(relieftype, size, ratio, cent, normal, addvector, weldlist = []):
         circle = Part.makeCircle(size, cent, normal)
         sketch = Part.Wire(circle)
     elif "Weld" in relieftype:
-        unfoldLength = weldlist[2]
         radius = size/2
 
         weld_sketch = []
         values = []
         for index,edge in enumerate(weldlist[1]):
+            unfoldLength = weldlist[2][index]
             flipped = -1
             #Doing this way to be sure that v1 is facing towards the corner
             p1: FreeCAD.Vector = edge.Vertexes[0].Point
@@ -424,7 +424,9 @@ def smCornerR(reliefsketch="Circle", size=3.0, ratio=1.0, xoffset=0.0, yoffset=0
     # Part.show(SplitLine,"SplitLine")
 
     if "Weld" in reliefsketch:
-        sketches = makeSketch(reliefsketch, size, ratio, cornerPoint, normal, SplitLineVector, [resultSolid, REdgelist, unfoldLength])
+        DetailList2 = getBendDetail(resultSolid, REdgelist[1], REdgelist[0], kfactor)
+        unfoldLength2 = DetailList2[4]
+        sketches = makeSketch(reliefsketch, size, ratio, cornerPoint, normal, SplitLineVector, [resultSolid, REdgelist, [unfoldLength,unfoldLength2]])
         if sketches[1]:
             weldFaces = []
             for sketch in sketches[0]:
