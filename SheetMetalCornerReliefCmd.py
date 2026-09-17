@@ -69,12 +69,12 @@ def makeSketch(relieftype, size, ratio, cent, normal, addvector, weldlist = []):
         circle = Part.makeCircle(size, cent, normal)
         sketch = Part.Wire(circle)
     elif "Weld" in relieftype:
-        unfoldLength = weldlist[2]
         radius = size/2
 
         weld_sketch = []
         values = []
         for index,edge in enumerate(weldlist[1]):
+            unfoldLength = weldlist[2][index]
             flipped = -1
             #Doing this way to be sure that v1 is facing towards the corner
             p1: FreeCAD.Vector = edge.Vertexes[0].Point
@@ -311,7 +311,7 @@ def closest_edge(
     ancestors = shape.ancestorsOfType(source_edge, Part.Face)
 
     for cylface in ancestors:
-        if isinstance(cylface.Surface, Part.Cylinder):
+        if issubclass(type(cylface.Surface), Part.Cylinder):
             break
 
     tester = None
@@ -320,6 +320,8 @@ def closest_edge(
         if tester:
             break
         if edge.isSame(source_edge):
+            continue
+        if not issubclass(type(edge.Curve), Part.Circle):
             continue
         for vertex in edge.Vertexes:
             if same_vertex(vertex.Point, point):
@@ -338,7 +340,7 @@ def closest_edge(
     ancestors = shape.ancestorsOfType(top_edge, Part.Face)
 
     for face in ancestors:
-        if isinstance(face.Surface, Part.Cylinder):
+        if issubclass(type(face.Surface), Part.Cylinder):
             continue
         for edge in face.Edges:
             if edge.isSame(top_edge):
@@ -422,7 +424,9 @@ def smCornerR(reliefsketch="Circle", size=3.0, ratio=1.0, xoffset=0.0, yoffset=0
     # Part.show(SplitLine,"SplitLine")
 
     if "Weld" in reliefsketch:
-        sketches = makeSketch(reliefsketch, size, ratio, cornerPoint, normal, SplitLineVector, [resultSolid, REdgelist, unfoldLength])
+        DetailList2 = getBendDetail(resultSolid, REdgelist[1], REdgelist[0], kfactor)
+        unfoldLength2 = DetailList2[4]
+        sketches = makeSketch(reliefsketch, size, ratio, cornerPoint, normal, SplitLineVector, [resultSolid, REdgelist, [unfoldLength,unfoldLength2]])
         if sketches[1]:
             weldFaces = []
             for sketch in sketches[0]:
@@ -668,7 +672,6 @@ def smCornerR(reliefsketch="Circle", size=3.0, ratio=1.0, xoffset=0.0, yoffset=0
 
     return resultSolid
 
-
 class SMCornerRelief:
     """Add Corner Relief to SheetMetal Bends."""
 
@@ -724,6 +727,22 @@ class SMCornerRelief:
                              MainObject=fp.baseObject[0])
         SheetMetalTools.smHideObjects(fp.baseObject[0], fp.Sketch)
 
+def updateMissingParameter(obj):
+    items = list(obj.getEnumerationsOfProperty("ReliefSketch"))
+
+    if "Weld" not in items:
+        obj.removeProperty("ReliefSketch")
+        _tip_ = FreeCAD.Qt.translate("App::Property", "Corner Relief Type")
+        obj.addProperty("App::PropertyEnumeration", "ReliefSketch", "Parameters", _tip_
+        ).ReliefSketch = [
+            "Circle",
+            "Circle-Scaled",
+            "Square",
+            "Square-Scaled",
+            "Weld",
+            "Weld-Scaled",
+            "Sketch",
+        ]
 
 ###################################################################################################
 # Gui code
@@ -793,6 +812,7 @@ if SheetMetalTools.isGuiLoaded():
             self.updateWidgetVisibility()
 
         def reliefTypeChanged(self, button, checked):
+            updateMissingParameter(self.obj)
             if not checked:
                 return
             relative = self.form.radioRelative.isChecked()
